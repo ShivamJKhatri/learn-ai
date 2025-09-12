@@ -44,7 +44,7 @@ function waitForElement(target, timeout = 10000) {
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Initial check in case element already exists
+    // Initial check
     const elements = getAllClickableElements();
     const match = findBestMatch(target, elements);
     if (match) {
@@ -67,14 +67,13 @@ async function executeActions(actions) {
       const remaining = actions.slice(i + 1);
       if (remaining.length) chrome.storage.local.set({ pendingActions: remaining });
 
-      // SPA-aware: use history.pushState if same-origin
       if (window.location.origin === new URL(action.url).origin) {
         history.pushState({}, "", action.url);
         window.dispatchEvent(new Event("locationchange"));
       } else {
         window.location.href = action.url;
       }
-      return; // stop here, remaining actions resume on route change
+      return; // remaining actions resume on route change
     }
 
     if (action.action === "click" && action.text) {
@@ -90,52 +89,6 @@ async function executeActions(actions) {
     }
   }
 }
-
-// --- Handle route changes for SPA ---
-window.addEventListener("popstate", () => window.dispatchEvent(new Event("locationchange")));
-const pushStateOrig = history.pushState;
-history.pushState = function () {
-  pushStateOrig.apply(this, arguments);
-  window.dispatchEvent(new Event("locationchange"));
-};
-
-window.addEventListener("locationchange", async () => {
-  console.log("SPA route changed:", window.location.href);
-
-  chrome.storage.local.get("pendingActions", async ({ pendingActions }) => {
-    if (Array.isArray(pendingActions) && pendingActions.length > 0) {
-      console.log("Resuming actions after route change:", pendingActions);
-      await executeActions(pendingActions);
-      chrome.storage.local.remove("pendingActions");
-    }
-  });
-});
-
-// --- On initial page load, resume any pending actions ---
-document.addEventListener("DOMContentLoaded", async () => {
-  chrome.storage.local.get("pendingActions", async ({ pendingActions }) => {
-    if (Array.isArray(pendingActions) && pendingActions.length > 0) {
-      console.log("Resuming pending actions:", pendingActions);
-      await executeActions(pendingActions);
-      chrome.storage.local.remove("pendingActions");
-    }
-  });
-});
-
-// --- Listen for messages from popup ---
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.action === "navigate") {
-    console.log("Content received prompt:", msg.prompt);
-    sendResponse({ status: "received" });
-
-    chrome.runtime.sendMessage({ action: "parse", prompt: msg.prompt }, async (actions) => {
-      if (!Array.isArray(actions)) actions = [];
-      await executeActions(actions);
-    });
-
-    return false;
-  }
-});
 
 // --- Gemini parsing function ---
 async function parsePromptWithGemini(prompt) {
@@ -164,7 +117,7 @@ User prompt: "${prompt}"`
   );
 
   const data = await response.json();
-  let text = data.candidates[0].content.parts[0].text;
+  let text = data.candidates[0]?.content?.parts[0]?.text || "";
   text = text.replace(/```json|```/g, "").trim();
 
   try {
@@ -176,10 +129,96 @@ User prompt: "${prompt}"`
   }
 }
 
+// --- Generate summary for the current page ---
+async function generatePageSummary() {
+  try {
+    const bodyText = document.body.innerText || "";
+    if (!bodyText.trim()) return;
+
+    const summaryPrompt = `Summarize the following page content concisely:\n\n${bodyText.slice(0, 10000)}`;
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-goog-api-key": "YOUR_API_KEY_HERE" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: summaryPrompt }]
+          }]
+        })
+      }
+    );
+
+    const data = await response.json();
+    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary generated";
+    console.log("📝 Page Summary:", summary);
+  } catch (err) {
+    console.error("Error generating page summary:", err);
+  }
+}
+
+// --- Handle route changes for SPA ---
+window.addEventListener("popstate", () => window.dispatchEvent(new Event("locationchange")));
+const pushStateOrig = history.pushState;
+history.pushState = function () {
+  pushStateOrig.apply(this, arguments);
+  window.dispatchEvent(new Event("locationchange"));
+};
+
+window.addEventListener("locationchange", async () => {
+  console.log("SPA route changed:", window.location.href);
+
+  // Generate summary on every route change
+  generatePageSummary();
+
+  chrome.storage.local.get("pendingActions", async ({ pendingActions }) => {
+    if (Array.isArray(pendingActions) && pendingActions.length > 0) {
+      console.log("Resuming actions after route change:", pendingActions);
+      await executeActions(pendingActions);
+      chrome.storage.local.remove("pendingActions");
+    }
+  });
+});
+
+// --- On initial page load ---
+document.addEventListener("DOMContentLoaded", async () => {
+  generatePageSummary(); // generate summary on load
+
+  chrome.storage.local.get("pendingActions", async ({ pendingActions }) => {
+    if (Array.isArray(pendingActions) && pendingActions.length > 0) {
+      console.log("Resuming pending actions:", pendingActions);
+      await executeActions(pendingActions);
+      chrome.storage.local.remove("pendingActions");
+    }
+  });
+});
+
 // --- Handle parse requests ---
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "parse") {
     parsePromptWithGemini(msg.prompt).then(actions => sendResponse(actions));
     return true;
+  }
+
+  if (msg.action === "navigate") {
+    console.log("Content received prompt:", msg.prompt);
+    sendResponse({ status: "received" });
+
+    // --- Hardcoded shortcut for Math 135 content ---
+    const promptLower = msg.prompt.toLowerCase();
+    if (promptLower.includes("math 135") && promptLower.includes("content")) {
+      const hardcodedUrl = "https://learn.uwaterloo.ca/d2l/le/content/1169416/Home"; // replace with actual URL
+      window.location.href = hardcodedUrl; // full reload
+      return false;
+    }
+
+    // --- Fallback to Gemini parsing ---
+    chrome.runtime.sendMessage({ action: "parse", prompt: msg.prompt }, async (actions) => {
+      if (!Array.isArray(actions)) actions = [];
+      await executeActions(actions);
+    });
+
+    return false;
   }
 });
