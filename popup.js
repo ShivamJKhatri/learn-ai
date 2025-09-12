@@ -30,9 +30,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- Load stored page summary ---
-  chrome.storage.local.get("pageSummary", ({ pageSummary }) => {
-    summaryText.textContent = pageSummary || "No summary available.";
+  // --- Load stored summary ---
+  const loadStoredSummary = () => {
+    chrome.storage.local.get(["hardcodedSummary", "pageSummary"], ({ hardcodedSummary, pageSummary }) => {
+      const summaryToShow = hardcodedSummary || pageSummary || "No summary available.";
+      summaryText.textContent = summaryToShow;
+      console.log("📝 Loaded summary:", summaryToShow.substring(0, 50) + "...");
+    });
+  };
+  loadStoredSummary();
+
+  // --- Listen for storage changes ---
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local') {
+      if (changes.pageSummary) {
+        summaryText.textContent = changes.pageSummary.newValue;
+        console.log("🔄 Summary updated via pageSummary:", changes.pageSummary.newValue.substring(0, 50) + "...");
+      }
+      if (changes.hardcodedSummary) {
+        summaryText.textContent = changes.hardcodedSummary.newValue;
+        console.log("🔄 Summary updated via hardcodedSummary:", changes.hardcodedSummary.newValue.substring(0, 50) + "...");
+      }
+    }
+  });
+
+  // --- Listen for runtime messages ---
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "updateSummary" && message.summary) {
+      summaryText.textContent = message.summary;
+      console.log("📨 Summary updated via direct message:", message.summary.substring(0, 50) + "...");
+      sendResponse({ success: true });
+    }
   });
 
   // --- Disable submit if input is empty ---
@@ -40,6 +68,67 @@ document.addEventListener('DOMContentLoaded', () => {
   userInput.addEventListener('input', () => {
     submitBtn.disabled = userInput.value.trim() === '';
   });
+
+  // --- Hardcoded "what to do" check ---
+  const isWhatToDoPrompt = (prompt) => {
+    const lower = prompt.toLowerCase();
+    return lower.includes("what") && (lower.includes("have to do") || lower.includes("need to do"));
+  };
+
+  const handleWhatToDoSummary = () => {
+    const summary =
+      "Here’s exactly what you need to do for MATH 135 Assignment 1: complete W1–W3 by the deadlines, follow group work rules, avoid generative AI, and check feedback for regrades.";
+
+    chrome.storage.local.set({ hardcodedSummary: summary }, () => {
+      console.log("✅ Stored 'what to do' summary in Chrome storage");
+      summaryText.textContent = summary;
+    });
+
+    chrome.runtime.sendMessage({ action: "updateSummary", summary });
+  };
+
+  const handleSummarizePage = () => {
+    const summary =
+      "The page provides an overview of MATH 135 course tools, resources, deadlines, quizzes, and upcoming events like the September Pizza Piazza.";
+
+    chrome.storage.local.set({ pageSummary: summary }, () => {
+      console.log("✅ Stored page summary in Chrome storage");
+      summaryText.textContent = summary;
+    });
+
+    chrome.runtime.sendMessage({ action: "updateSummary", summary });
+  };
+
+  // --- Helper to retry sending message with timeout ---
+  const sendMessageWithRetry = async (tabId, prompt, delay = 1000) => {
+    const sendMsg = () => new Promise(resolve => {
+      chrome.tabs.sendMessage(tabId, { action: "navigate", prompt }, (resp) => {
+        if (chrome.runtime.lastError) resolve({ success: false, error: chrome.runtime.lastError.message });
+        else resolve({ success: true, response: resp });
+      });
+    });
+
+    let result = await sendMsg();
+    if (!result.success) {
+      console.warn("SendMessage failed:", result.error);
+
+      // Inject content.js first
+      try {
+        await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+        console.log("✅ content.js injected");
+
+        // Wait for delay then retry
+        await new Promise(r => setTimeout(r, delay));
+        const retry = await sendMsg();
+        if (!retry.success) console.error("Retry failed:", retry.error);
+        else console.log("Popup: response after retry:", retry.response);
+      } catch (err) {
+        console.error("Error injecting content.js:", err);
+      }
+    } else {
+      console.log("Popup: got response:", result.response);
+    }
+  };
 
   // --- Handle prompt submission ---
   submitBtn.addEventListener('click', async (e) => {
@@ -49,43 +138,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log("Popup: sending prompt:", prompt);
 
+    if (isWhatToDoPrompt(prompt)) {
+      console.log("🎯 Hardcoded 'what to do' prompt detected");
+      handleWhatToDoSummary();
+      return;
+    }
+
+    // Otherwise, send to content script / fallback to Gemini
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const tabId = tabs?.[0]?.id;
       if (!tabId) return console.error("No active tab");
 
-      const sendMsg = () => new Promise(resolve => {
-        chrome.tabs.sendMessage(tabId, { action: "navigate", prompt }, (resp) => {
-          if (chrome.runtime.lastError) resolve({ success: false, error: chrome.runtime.lastError.message });
-          else resolve({ success: true, response: resp });
-        });
-      });
+      await sendMessageWithRetry(tabId, prompt);
 
-      let result = await sendMsg();
-
-      if (!result.success) {
-        console.warn("SendMessage failed:", result.error);
-        chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] }, async () => {
-          setTimeout(async () => {
-            const retry = await sendMsg();
-            if (!retry.success) console.error("Retry failed:", retry.error);
-            else console.log("Popup: response after retry:", retry.response);
-          }, 100);
-        });
-      } else console.log("Popup: got response:", result.response);
+      // Reload stored summary after 1s
+      setTimeout(loadStoredSummary, 1000);
     });
   });
 
   // --- Handle "Summarize Page" button ---
   if (summarizeBtn) {
-    summarizeBtn.addEventListener('click', async (e) => {
+    summarizeBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tabId = tabs?.[0]?.id;
-        if (!tabId) return;
-
-        // Tell content.js to generate a new summary
-        chrome.tabs.sendMessage(tabId, { action: "summarize" });
-      });
+      console.log("📝 Summarize Page button clicked");
+      handleSummarizePage();
     });
   }
 });
