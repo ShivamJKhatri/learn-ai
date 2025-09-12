@@ -152,7 +152,12 @@ async function generatePageSummary() {
 
     const data = await response.json();
     const summary = data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary generated";
-    console.log("📝 Page Summary:", summary);
+
+    // --- Store summary for popup ---
+    chrome.storage.local.set({ pageSummary: summary }, () => {
+      console.log("📝 Page summary stored for popup:", summary);
+    });
+
   } catch (err) {
     console.error("Error generating page summary:", err);
   }

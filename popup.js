@@ -1,23 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
   const statusBar = document.getElementById('status-bar');
-  const submitBtn = document.querySelector('.submit'); // changed
-  const userInput = document.getElementById('user-input'); // changed
+  const submitBtn = document.querySelector('.submit'); 
+  const userInput = document.getElementById('user-input'); 
+  const summarizeBtn = document.querySelector('.sum-page'); 
+  const summaryText = document.querySelector('.summary-text');
 
-  if (!statusBar || !submitBtn || !userInput) {
+  if (!statusBar || !submitBtn || !userInput || !summaryText) {
     console.error('Required elements missing in popup.html');
     return;
   }
 
   // --- Status check ---
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (!tabs || tabs.length === 0) {
-      statusBar.textContent = 'No active tab ❌';
-      statusBar.classList.add('not-learn');
-      return;
-    }
-
-    const url = tabs[0].url;
-
+    const url = tabs?.[0]?.url;
     if (!url) {
       statusBar.textContent = '❌ URL unavailable';
       statusBar.classList.add('not-learn');
@@ -35,6 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // --- Load stored page summary ---
+  chrome.storage.local.get("pageSummary", ({ pageSummary }) => {
+    summaryText.textContent = pageSummary || "No summary available.";
+  });
+
   // --- Disable submit if input is empty ---
   submitBtn.disabled = true;
   userInput.addEventListener('input', () => {
@@ -43,16 +43,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Handle prompt submission ---
   submitBtn.addEventListener('click', async (e) => {
-    e.preventDefault(); // prevent form submission
+    e.preventDefault(); 
     const prompt = userInput.value.trim();
     if (!prompt) return;
 
     console.log("Popup: sending prompt:", prompt);
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (!tabs[0]) return console.error("No active tab");
-
-      const tabId = tabs[0].id;
+      const tabId = tabs?.[0]?.id;
+      if (!tabId) return console.error("No active tab");
 
       const sendMsg = () => new Promise(resolve => {
         chrome.tabs.sendMessage(tabId, { action: "navigate", prompt }, (resp) => {
@@ -75,4 +74,18 @@ document.addEventListener('DOMContentLoaded', () => {
       } else console.log("Popup: got response:", result.response);
     });
   });
+
+  // --- Handle "Summarize Page" button ---
+  if (summarizeBtn) {
+    summarizeBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs?.[0]?.id;
+        if (!tabId) return;
+
+        // Tell content.js to generate a new summary
+        chrome.tabs.sendMessage(tabId, { action: "summarize" });
+      });
+    });
+  }
 });
