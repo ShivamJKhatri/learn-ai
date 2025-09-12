@@ -1,54 +1,18 @@
-# Chrome Extension Boilerplate
+# Gemini Web Navigator – Chrome Extension
 
-A simple Chrome extension boilerplate template.
+Gemini Web Navigator is a Chrome extension that uses Google’s **Gemini API** to help users navigate websites with natural language prompts. Instead of manually clicking through menus, simply type a command (e.g., *“Go to Math 135 content”*), and the extension will handle the navigation for you.
 
-## Features
+## ✨ Features
+- 🔹 Natural language commands to control website navigation
+- 🔹 Powered by Google Gemini AI for prompt parsing
+- 🔹 Generates structured JSON actions for accurate execution
+- 🔹 Executes actions like button clicks, link navigation, and page changes
+- 🔹 Built with **JavaScript** and the **Chrome Extensions API**
 
-- Modern Chrome Extension (Manifest V3)
-- Popup interface
-- Clean and responsive design
-- Easy to customize and extend
+## 🛠️ How It Works
+1. **User Input**: You enter a prompt (e.g., *“Open assignments page”*).  
+2. **Gemini Processing**: The extension sends the prompt to the Gemini API.  
+3. **Action Parsing**: Gemini returns a structured JSON array of actions.  
+4. **Execution**: The extension parses Gemini’s response and performs each action sequentially.  
 
-## Installation
-
-1. Copy these files to a folder
-2. Go to `chrome://extensions/` in Chrome
-3. Enable "Developer mode"
-4. Click "Load unpacked" button
-5. Select the folder containing these files
-
-## Files
-
-- `manifest.json` - Extension configuration
-- `popup.html` - Popup interface HTML
-- `popup.css` - Popup styles and design
-- `popup.js` - JavaScript code for popup functionality
-- `README.md` - This documentation file
-
-## Usage
-
-1. Click on the extension icon in Chrome toolbar
-2. The popup will open showing the extension interface
-3. Customize the popup content as needed
-
-## Development
-
-To customize the extension:
-1. Edit the files as needed
-2. Reload the extension in Chrome (`chrome://extensions/`)
-3. Test your changes
-
-## Icons
-
-Add your extension icons to the folder:
-- `icon16.png` - 16x16 pixels
-- `icon32.png` - 32x32 pixels  
-- `icon48.png` - 48x48 pixels
-- `icon128.png` - 128x128 pixels
-
-## Customization
-
-- Modify `popup.html` to change the interface
-- Update `popup.css` for different styling
-- Edit `popup.js` to add new features and functionality
-- Update `manifest.json` to add more permissions or change settings
+## 📦 Showcase
