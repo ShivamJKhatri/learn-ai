@@ -1,17 +1,19 @@
 {
-	"manifest_version": 3,
-	"name": "Learn helper AI",
-	"version": "1.0.0",
-	"description": "Lol AI go brrr",
-	"permissions": ["tabs", "activeTab"],
-	"host_permissions": ["https://learn.uwaterloo.ca/*"],
-	"action": {
-		"default_popup": "popup.html"
-	},
-	"icons": {
-		"16": "logo.png",
-		"32": "logo.png",
-		"48": "logo.png",
-		"128": "logo.png"
-	}
+  "manifest_version": 3,
+  "name": "LEARN Gemini Navigator",
+  "version": "1.0",
+  "description": "Navigate Waterloo LEARN using Gemini AI and natural-language prompts",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://learn.uwaterloo.ca/d2l/*"],
+      "js": ["content.js"]
+    }
+  ]
 }
