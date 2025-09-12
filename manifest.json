@@ -1,0 +1,17 @@
+{
+	"manifest_version": 3,
+	"name": "Learn helper AI",
+	"version": "1.0.0",
+	"description": "Lol AI go brrr",
+	"permissions": ["tabs", "activeTab"],
+	"host_permissions": ["https://learn.uwaterloo.ca/*"],
+	"action": {
+		"default_popup": "popup.html"
+	},
+	"icons": {
+		"16": "logo.png",
+		"32": "logo.png",
+		"48": "logo.png",
+		"128": "logo.png"
+	}
+}

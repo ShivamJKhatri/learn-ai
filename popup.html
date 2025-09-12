@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>LearnMate AI</title>
+		<link rel="stylesheet" href="popup.css" />
+	</head>
+	<body>
+		<div class="container">
+			<div class="top">
+				<img src="logo.png" alt="" />
+				<h1 class="title">LearnMate AI</h1>
+			</div>
+			<div class="status" id="status-bar">Not on LEARN ❌</div>
+			<div class="real-container">
+				<form id="simple-form">
+					<input
+						type="text"
+						id="user-input"
+						placeholder="Enter prompt..."
+					/>
+					<div class="btns">
+						<button type="submit" class="submit">
+							Submit
+						</button>
+						<button class="sum-page">
+							Summarize Page
+						</button>
+					</div>
+				</form>
+				<div class="summary">
+					<p class="summary-text">Frontend: React, TypeScript, TailwindCSS
+Backend: Express or FastAPI
+Database/Auth: Supabase / Postgres
+Deployment: Vercel (frontend), Railway/Render (backend)
+</p>
+				</div>
+			</div>
+		</div>
+		<script src="popup.js"></script>
+	</body>
+</html>
