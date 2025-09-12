@@ -16,3 +16,4 @@ Gemini Web Navigator is a Chrome extension that uses Google’s **Gemini API** t
 4. **Execution**: The extension parses Gemini’s response and performs each action sequentially.  
 
 ## 📦 Showcase
+![](/style.png)
