@@ -1,6 +1,6 @@
 # Gemini Web Navigator – Chrome Extension
 
-Gemini Web Navigator is a Chrome extension that uses Google’s **Gemini API** to help users navigate websites with natural language prompts. Instead of manually clicking through menus, simply type a command (e.g., *“Go to Math 135 content”*), and the extension will handle the navigation for you.
+Gemini Web Navigator is a Chrome extension that uses Google’s **Gemini API** to help users navigate websites with natural language prompts. Instead of manually clicking through menus, simply type a command (e.g., *“Go to Math 135 content”*), and the extension will handle the navigation for you!
 
 ## ✨ Features
 - 🔹 Natural language commands to control website navigation
